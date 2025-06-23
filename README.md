@@ -1,96 +1,138 @@
-# Content Generator API
+# 🧠 Content Generator API
 
-API REST FastAPI pour générer du contenu éditorial personnalisé via OpenAI.
+API REST construite avec **FastAPI** pour générer du contenu éditorial personnalisé à l’aide de **OpenAI**.
+
+---
 
 ## 🚀 Installation
 
-\`\`\`bash
-# Cloner le projet
+```bash
 git clone https://github.com/dannidotcom/ai-content-generator-api.git
-cd content-generator-api
+cd ai-content-generator-api
+```
 
-# Installer les dépendances
+### 📦 Installer les dépendances
+
+```bash
 pip install -r requirements.txt
+```
 
-# Configurer les variables d'environnement
+### ⚙️ Configuration des variables d’environnement
+
+Copier le fichier exemple :
+
+```bash
 cp .env.example .env
-# Éditer .env et ajouter votre clé OpenAI
-\`\`\`
+```
 
-## ⚙️ Configuration
+Éditer le fichier `.env` pour y ajouter votre **clé API OpenAI** :
 
-Créer un fichier \`.env\` avec :
-
-\`\`\`env
+```env
 OPENAI_API_KEY=sk-votre-cle-openai-ici
 PORT=8000
 OPENAI_MODEL=gpt-4o-mini
-\`\`\`
+```
 
-## 🏃 Lancement
+---
 
-\`\`\`bash
+## 🏃 Lancement du serveur
+
+```bash
 uvicorn main:app --reload
-\`\`\`
+```
 
-L'API sera disponible sur : http://localhost:8000
+L’API sera accessible à l’adresse : [http://localhost:8000](http://localhost:8000)
 
-## 📖 Documentation
+---
 
-- **Swagger UI** : http://localhost:8000/docs
-- **ReDoc** : http://localhost:8000/redoc
+## 📖 Documentation interactive
 
-## 🔗 Endpoint Principal
+- [Swagger UI](http://localhost:8000/docs)
+- [ReDoc](http://localhost:8000/redoc)
 
-### POST /api/v1/generate-content
+---
 
-Génère du contenu éditorial personnalisé.
+## 🔗 Endpoint principal
 
-**Request :**
-\`\`\`json
+### `POST /api/v1/generate-content`
+
+Génère du contenu éditorial personnalisé via OpenAI.
+
+#### 🟢 Exemple de requête
+
+```json
 {
   "cible": "LinkedIn",
   "prospect_type": "Qualifié",
   "date": "2025-01-15"
 }
-\`\`\`
+```
 
-**Response :**
-\`\`\`json
+#### 🔵 Exemple de réponse
+
+```json
 {
   "theme_general": "Humaniser la marque via du contenu lifestyle",
   "theme_hebdo": "Mettre en avant les coulisses d'un projet client",
   "texte": "Cette semaine, publiez une série de photos...",
   "used": 0
 }
-\`\`\`
+```
 
-## 📋 Valeurs Acceptées
+---
 
-**Cibles :** LinkedIn, Facebook, Instagram, TikTok, Mail
+## 📋 Valeurs acceptées
 
-**Types de prospects :** Peu qualifié, Qualifié, Hautement qualifié
+- **Cibles :** `LinkedIn`, `Facebook`, `Instagram`, `TikTok`, `Mail`
+- **Types de prospects :** `Peu qualifié`, `Qualifié`, `Hautement qualifié`
 
-## 🧪 Test Rapide
+---
 
-\`\`\`bash
+## 🧪 Test rapide avec `curl`
+
+Depuis un fichier :
+
+```bash
 curl -X POST "http://localhost:8000/api/v1/generate-content" \
   -H "Content-Type: application/json" \
   -d @example_request.json
-\`\`\`
+```
 
-## 🔧 Diagnostic
+Ou directement en ligne :
 
-Vérifier la configuration OpenAI :
-\`\`\`bash
+```bash
+curl -X POST "http://localhost:8000/api/v1/generate-content" \
+  -H "Content-Type: application/json" \
+  -d '{"cible": "Instagram", "prospect_type": "Qualifié", "date": "2025-07-15"}'
+```
+
+---
+
+## 🔧 Diagnostic local
+
+Vérifier la configuration d’OpenAI :
+
+```bash
 curl http://localhost:8000/debug/openai
-\`\`\`
+```
 
-## 🏗️ Architecture
+---
 
-- **models/** : Schémas Pydantic
-- **services/** : Logique métier (OpenAI)
-- **repository/** : Persistance des données
-- **routes/** : Endpoints REST
+## 🏗️ Architecture du projet
 
-Respecte les principes SOLID pour une architecture maintenable.
+```
+.
+├── models/       # Schémas Pydantic
+├── services/     # Logique métier (intégration OpenAI)
+├── repository/   # Persistance éventuelle
+├── routes/       # Endpoints REST
+├── main.py       # Entrée principale de l'application
+```
+
+🧱 L’architecture suit les **principes SOLID** pour un code propre, testable et maintenable.
+
+---
+
+## 📫 Auteur
+
+Développé par [@dannidotcom](https://github.com/dannidotcom)
