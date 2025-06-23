@@ -3,7 +3,9 @@ from models.schemas import ContentRequest, ContentResponse
 from openai import OpenAI
 import json
 import os, re
+from dotenv import load_dotenv
 
+load_dotenv()
 class ContentGeneratorInterface(ABC):
     """Interface pour la génération de contenu (Interface Segregation)"""
 
@@ -28,7 +30,7 @@ class OpenAIContentGenerator(ContentGeneratorInterface):
                 raise ValueError("Clé API OpenAI non configurée")
 
             response = self.client.chat.completions.create(
-                model="gpt-4o-mini",
+                model=os.getenv("OPENAI_MODEL", "gpt-4o-mini"),
                 messages=[
                     {
                         "role": "system",
