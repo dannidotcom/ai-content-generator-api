@@ -4,6 +4,7 @@ from routes.content import router as content_router
 import os
 from dotenv import load_dotenv
 import uvicorn
+from database.connexion import Base, engine
 
 load_dotenv()
 
@@ -23,6 +24,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+# Créer les tables
+Base.metadata.create_all(bind=engine)
 
 # Inclusion des routes
 app.include_router(content_router)

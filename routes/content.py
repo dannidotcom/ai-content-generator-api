@@ -1,7 +1,15 @@
-from fastapi import APIRouter, HTTPException, Depends
+from datetime import date, datetime
+from typing import Optional
+from fastapi import APIRouter, HTTPException, Depends, Query
+from fastapi.responses import StreamingResponse
+from database.connexion import get_db
 from models.schemas import ContentRequest, ContentResponse
+from repository.conn_repo import DBContentRepository
 from services.content_ai import ContentGeneratorInterface, ContentGeneratorFactory
 from repository.content_repo import ContentRepositoryInterface, InMemoryContentRepository
+from sqlalchemy.orm import Session
+
+from services.excel_extract import ExcelExtractService
 
 router = APIRouter(prefix="/api/v1", tags=["Content Generation"])
 
@@ -9,35 +17,127 @@ router = APIRouter(prefix="/api/v1", tags=["Content Generation"])
 def get_content_generator() -> ContentGeneratorInterface:
     return ContentGeneratorFactory.create_generator("openai")
 
-def get_content_repository() -> ContentRepositoryInterface:
-    return InMemoryContentRepository()
+def get_content_repository(db: Session = Depends(get_db)) -> ContentRepositoryInterface:
+    return DBContentRepository(db)
 
 @router.post("/generate-content", response_model=ContentResponse)
 async def generate_editorial_content(
     request: ContentRequest,
     generator: ContentGeneratorInterface = Depends(get_content_generator),
-    repository: ContentRepositoryInterface = Depends(get_content_repository)
+    db: Session = Depends(get_db)
 ):
     """
     Génère du contenu éditorial personnalisé via IA
-    
+
     - **cible**: Canal marketing (LinkedIn, Facebook, Instagram, TikTok, Mail)
     - **prospect_type**: Maturité commerciale (Peu qualifié, Qualifié, Hautement qualifié)
     - **date**: Date de génération du contenu
-    
+
     Retourne un contenu éditorial avec thème général, thème hebdomadaire et texte.
     """
     try:
+        repository = DBContentRepository(db)
         # Générer le contenu via IA
         content = await generator.generate_content(request)
-        
-        # Sauvegarder le contenu généré
-        await repository.save_content(content)
-        
+        # Sauvegarder le contenu généré avec les infos de la requête
+        await repository.save_content_with_request(content, request)
+
         return content
-        
     except Exception as e:
         raise HTTPException(
             status_code=500,
             detail=f"Erreur lors de la génération du contenu: {str(e)}"
+        )
+
+
+@router.get("/getall-contents")
+async def get_all_contents(
+    cible: Optional[str] = Query(None),
+    prospect_type: Optional[str] = Query(None),
+    start_date: Optional[date] = Query(None),
+    end_date: Optional[date] = Query(None),
+    limit: int = Query(100, le=1000),
+    offset: int = Query(0, ge=0),
+    db: Session = Depends(get_db)
+):
+    """Récupère tous les contenus avec pagination et filtres"""
+    try:
+        repository = DBContentRepository(db)
+        contents = await repository.get_all_content(
+            cible=cible,
+            prospect_type=prospect_type,
+            start_date=start_date,
+            end_date=end_date
+        )
+
+        # Pagination
+        total = len(contents)
+        paginated_contents = contents[offset:offset + limit]
+
+        return {
+            "total": total,
+            "limit": limit,
+            "offset": offset,
+            "contents": [
+                {
+                    "id": content.id,
+                    "cible": content.cible,
+                    "prospect_type": content.prospect_type,
+                    "generation_date": content.generation_date,
+                    "theme_general": content.theme_general,
+                    "theme_hebdo": content.theme_hebdo,
+                    "texte": content.texte,
+                    "used": content.used,
+                    "created_at": content.created_at
+                } for content in paginated_contents
+            ]
+        }
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Erreur lors de la récupération: {str(e)}"
+        )
+
+@router.get("/extract-excel")
+async def extract_content_to_excel(
+    cible: Optional[str] = Query(None, description="Filtrer par cible"),
+    prospect_type: Optional[str] = Query(None, description="Filtrer par type de prospect"),
+    start_date: Optional[date] = Query(None, description="Date de début"),
+    end_date: Optional[date] = Query(None, description="Date de fin"),
+    db: Session = Depends(get_db)
+):
+    """
+    Exporte les contenus générés vers un fichier Excel
+    """
+    try:
+        repository = DBContentRepository(db)
+
+        # Récupérer les contenus avec filtres
+        contents = await repository.get_all_content(
+            cible=cible,
+            prospect_type=prospect_type,
+            start_date=start_date,
+            end_date=end_date
+        )
+
+        if not contents:
+            raise HTTPException(status_code=404, detail="Aucun contenu trouvé")
+
+        # Générer le fichier Excel
+        excel_file = ExcelExtractService.extract_to_excel(contents)
+
+        # Nom du fichier avec timestamp
+        filename = f"contenus_editoriaux_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+
+        return StreamingResponse(
+            excel_file,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": f"attachment; filename={filename}"}
+        )
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Erreur lors de l'export Excel: {str(e)}"
         )
