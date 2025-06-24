@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
-from models.schemas import ContentRequest, ContentResponse
+import random
+from models.schemas import CibleEnum, ContentRequest, ContentResponse, ProspectTypeEnum
 from openai import OpenAI
 import json
 import os, re
@@ -93,7 +94,38 @@ class OpenAIContentGenerator(ContentGeneratorInterface):
             texte=f"Contenu générique pour {request.cible.value} - {request.prospect_type.value}",
             used=0
         )
+    def generate_for_request(self, request: ContentRequest) -> dict:
+        prompt = self._build_prompt(request)
+        response = self.client.chat.completions.create(
+            model=os.getenv("OPENAI_MODEL", "gpt-4o-mini"),
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.7,
+        )
+        result = response.choices[0].message.content
+        return eval(result)  # ou json.loads si le JSON est sûr
 
+    def generate_for_all_targets(self, date_: str):
+        results = []
+        for cible in CibleEnum:
+            prospect_type = random.choice(list(ProspectTypeEnum))
+            request = ContentRequest(
+                cible=cible,
+                prospect_type=prospect_type,
+                date=request.date if isinstance(request.date, str) else date_.isoformat()
+            )
+            result_data = self.generate_for_request(request)
+            db_obj = ContentResponse(
+                cible=cible.value,
+                prospect_type=prospect_type.value,
+                date=request.date if isinstance(request.date, str) else date_.isoformat(),
+                theme_general=result_data["theme_general"],
+                theme_hebdo=result_data["theme_hebdo"],
+                texte=result_data["texte"],
+            )
+            self.db.add(db_obj)
+            results.append(db_obj)
+        self.db.commit()
+        return results
 class ContentGeneratorFactory:
     """Factory pour créer des générateurs de contenu (Open/Closed Principle)"""
 

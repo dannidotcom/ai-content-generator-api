@@ -1,9 +1,10 @@
 from datetime import date, datetime
-from typing import Optional
+import random
+from typing import List, Optional
 from fastapi import APIRouter, HTTPException, Depends, Query
 from fastapi.responses import StreamingResponse
 from database.connexion import get_db
-from models.schemas import ContentRequest, ContentResponse
+from models.schemas import CibleEnum, ContentRequest, ContentResponse, ProspectTypeEnum
 from repository.conn_repo import DBContentRepository
 from services.content_ai import ContentGeneratorInterface, ContentGeneratorFactory
 from repository.content_repo import ContentRepositoryInterface, InMemoryContentRepository
@@ -49,7 +50,45 @@ async def generate_editorial_content(
             detail=f"Erreur lors de la génération du contenu: {str(e)}"
         )
 
+@router.post("/generate-content-hebdo", response_model=List[ContentResponse])
+async def generate_editorial_batch(
+    date_: date,
+    generator: ContentGeneratorInterface = Depends(get_content_generator),
+    db: Session = Depends(get_db)
+):
+    """
+    Génère automatiquement du contenu éditorial pour tous les canaux définis
 
+    - Génère un contenu pour chaque **cible** (LinkedIn, Facebook, Instagram, TikTok, Mail)
+    - Le **prospect_type** est choisi aléatoirement pour chaque cible
+    - Tous les contenus sont sauvegardés en base
+
+    Retourne une liste de contenus générés.
+    """
+    try:
+        repository = DBContentRepository(db)
+        results = []
+
+        for cible in CibleEnum:
+            prospect_type = random.choice(list(ProspectTypeEnum))
+
+            request = ContentRequest(
+                cible=cible,
+                prospect_type=prospect_type,
+                date=date_
+            )
+
+            content = await generator.generate_content(request)
+            await repository.save_content_with_request(content, request)
+            results.append(content)
+
+        return results
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Erreur lors de la génération de contenu hebdo : {str(e)}"
+        )
 @router.get("/getall-contents")
 async def get_all_contents(
     cible: Optional[str] = Query(None),
