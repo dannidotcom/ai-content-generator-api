@@ -4,6 +4,7 @@ from enum import Enum
 from typing import Literal, Union
 from datetime import datetime
 from datetime import datetime, date as dt_date
+
 class CibleEnum(str, Enum):
     LINKEDIN = "LinkedIn"
     FACEBOOK = "Facebook"
@@ -49,4 +50,7 @@ class ContentResponse(BaseModel):
     theme_general: str = Field(..., description="Ligne éditoriale principale")
     theme_hebdo: str = Field(..., description="Focus éditorial de la semaine")
     texte: str = Field(..., description="Contenu à publier")
+    cible: CibleEnum = Field(..., description="Canal marketing cible")
+    prospect_type: ProspectTypeEnum = Field(..., description="Niveau de maturité du prospect")
+    generation_date: dt_date = Field(..., description="Date de génération du contenu")
     used: int = Field(default=0, description="Indicateur d'utilisation")

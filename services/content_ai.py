@@ -57,6 +57,9 @@ class OpenAIContentGenerator(ContentGeneratorInterface):
             return ContentResponse(
                 theme_general=content_json["theme_general"],
                 theme_hebdo=content_json["theme_hebdo"],
+                cible=request.cible.value,
+                prospect_type=request.prospect_type.value,
+                generation_date=request.date if isinstance(request.date, str) else request.date.isoformat(),
                 texte=content_json["texte"],
                 used=0
             )
@@ -68,24 +71,51 @@ class OpenAIContentGenerator(ContentGeneratorInterface):
             print(f"Erreur OpenAI: {str(e)}")
             return self._get_fallback_content(request)
 
+    # def _build_prompt(self, request: ContentRequest) -> str:
+    #     """Construit le prompt pour OpenAI"""
+    #     return f"""
+    # Génère du contenu éditorial pour:
+    # - Cible: {request.cible.value}
+    # - Type de prospect: {request.prospect_type.value}
+    # - Date: {request.date}
+
+    # Réponds uniquement avec un JSON contenant:
+    # {{
+    #     "theme_general": "ligne éditoriale principale adaptée à {request.cible.value}",
+    #     "theme_hebdo": "focus éditorial spécifique pour la semaine du {request.date}",
+    #     "texte": "contenu concret à publier, adapté au niveau {request.prospect_type.value}"
+    # }}
+
+    # Le contenu doit être pertinent pour {request.prospect_type.value} sur {request.cible.value}.
+    # """
     def _build_prompt(self, request: ContentRequest) -> str:
-        """Construit le prompt pour OpenAI"""
+        """Construit le prompt pour OpenAI avec détection automatique du contexte local + tendances populaires"""
         return f"""
-    Génère du contenu éditorial pour:
-    - Cible: {request.cible.value}
-    - Type de prospect: {request.prospect_type.value}
-    - Date: {request.date}
+      Tu es un expert en marketing digital, en communication éditoriale et en veille contextuelle mondiale et locale.
 
-    Réponds uniquement avec un JSON contenant:
-    {{
+      Ta mission est de générer un contenu éditorial pour :
+      - Cible : {request.cible.value}
+      - Type de prospect : {request.prospect_type.value}
+      - Date de référence : {request.date}
+
+      Tu dois détecter automatiquement :
+      - le **contexte local** (pays ou région d’où l’API semble utilisée),
+      - et/ou les **tendances populaires au niveau mondial** à ce moment-là.
+
+      Le `theme_hebdo` doit refléter **un fait marquant** ou **un sujet populaire cette semaine-là**, comme :
+      - une fête ou journée spéciale (locale ou internationale),
+      - une actualité virale ou buzz sur les réseaux sociaux,
+      - une tendance dans la culture, la tech, l’économie ou l’environnement.
+
+      Ta réponse doit être un **JSON strictement valide** contenant :
+      {{
         "theme_general": "ligne éditoriale principale adaptée à {request.cible.value}",
-        "theme_hebdo": "focus éditorial spécifique pour la semaine du {request.date}",
-        "texte": "contenu concret à publier, adapté au niveau {request.prospect_type.value}"
-    }}
+        "theme_hebdo": "focus éditorial spécifique pour la semaine du {request.date}, basé sur un contexte local ou une tendance populaire actuelle",
+        "texte": "contenu à publier, engageant et adapté à un public {request.prospect_type.value} sur {request.cible.value}"
+      }}
 
-    Le contenu doit être pertinent pour {request.prospect_type.value} sur {request.cible.value}.
-    """
-
+      ⚠️ Réponds uniquement avec ce JSON. N’invente aucun fait. Si rien de pertinent n’existe, propose un thème intemporel ou inspirant.
+      """
     def _get_fallback_content(self, request: ContentRequest) -> ContentResponse:
         """Contenu de secours en cas d'erreur OpenAI"""
         return ContentResponse(
